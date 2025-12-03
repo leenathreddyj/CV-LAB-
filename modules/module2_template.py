@@ -108,9 +108,9 @@ class TemplateMatchingModule:
             
             bottom_right = (top_left[0] + w, top_left[1] + h)
             detections.append({
-                'bbox': [top_left[0], top_left[1], w, h],
+                'bbox': [int(top_left[0]), int(top_left[1]), int(w), int(h)],
                 'confidence': float(confidence),
-                'center': (top_left[0] + w//2, top_left[1] + h//2)
+                'center': [int(top_left[0] + w//2), int(top_left[1] + h//2)]
             })
         else:
             # Non-maximum suppression to remove overlapping detections
@@ -131,9 +131,9 @@ class TemplateMatchingModule:
             for idx in indices:
                 x, y = int(boxes[idx][0]), int(boxes[idx][1])
                 detections.append({
-                    'bbox': [x, y, w, h],
+                    'bbox': [int(x), int(y), int(w), int(h)],
                     'confidence': float(scores[idx]),
-                    'center': (x + w//2, y + h//2)
+                    'center': [int(x + w//2), int(y + h//2)]
                 })
         
         return detections, result
@@ -256,8 +256,7 @@ class TemplateMatchingModule:
                 'name': self.template_names[i],
                 'detections': detections,
                 'num_detections': len(detections),
-                'result_image': result_img,
-                'match_heatmap': match_result
+                'result_image': result_img
             })
         
         if progress_callback:
