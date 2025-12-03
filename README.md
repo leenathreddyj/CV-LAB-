@@ -4,6 +4,8 @@
 
 **Author:** Sai Leenath Jampala
 
+**🌐 Live Demo:** [https://cv-lab.up.railway.app/](https://cv-lab.up.railway.app/)
+
 ---
 
 A comprehensive web-based platform for real-time computer vision processing, featuring advanced image analysis, object tracking, pose estimation, and more.
@@ -51,7 +53,9 @@ python app.py
 
 ### Access
 
-Open your browser and navigate to:
+**Live Application:** [https://cv-lab.up.railway.app/](https://cv-lab.up.railway.app/)
+
+For local development, open your browser and navigate to:
 
 ```
 http://localhost:5000
@@ -125,7 +129,7 @@ AI-powered human tracking using MediaPipe:
 | Backend | Flask, OpenCV, NumPy, SciPy, MediaPipe |
 | Frontend | HTML5, CSS3, JavaScript, Canvas API |
 | Database | SQLite |
-| Deployment | Docker, Gunicorn |
+| Deployment | Railway, Docker, Gunicorn |
 
 ---
 
@@ -148,6 +152,19 @@ AI-powered human tracking using MediaPipe:
 │   └── js/
 └── requirements.txt       # Dependencies
 ```
+
+---
+
+## Deployment
+
+**Live Application:** [https://cv-lab.up.railway.app/](https://cv-lab.up.railway.app/)
+
+The application is deployed on **Railway** with automatic deployments from the main branch.
+
+### Quick Access
+
+- **Homepage:** [https://cv-lab.up.railway.app/](https://cv-lab.up.railway.app/)
+- **Developer Login:** [https://cv-lab.up.railway.app/dev-login](https://cv-lab.up.railway.app/dev-login)
 
 ---
 
