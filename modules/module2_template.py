@@ -181,12 +181,17 @@ class TemplateMatchingModule:
         
         return pick
     
-    def match_all_templates(self, image, progress_callback=None):
+    def match_all_templates(self, image, threshold=0.65, progress_callback=None):
         """
         Match all stored templates against the image with progress tracking
         - Automatically resizes large images
         - Converts to grayscale internally
         - Scales detections back to original image size
+        
+        Args:
+            image: Input image to search
+            threshold: Confidence threshold for detection (default: 0.65)
+            progress_callback: Optional callback function for progress updates
         """
         if len(self.templates) == 0:
             return []
@@ -194,7 +199,7 @@ class TemplateMatchingModule:
         # Resize image for faster processing (automatic optimization)
         processed_image, scale = self.resize_for_processing(image)
         
-        print(f"🔍 Processing image (scale: {scale:.2f}x) with {len(self.templates)} template(s)")
+        print(f"🔍 Processing image (scale: {scale:.2f}x) with {len(self.templates)} template(s), threshold={threshold}")
         
         results = []
         total_templates = len(self.templates)
@@ -204,7 +209,7 @@ class TemplateMatchingModule:
                 progress_callback(int(((i + 1) / total_templates) * 100))
             
             # Match template (internally converts to grayscale)
-            detections, match_result = self.match_template(processed_image, template)
+            detections, match_result = self.match_template(processed_image, template, threshold=threshold)
             
             # Scale detections back to original image size
             if scale != 1.0:
