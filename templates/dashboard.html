@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | CV Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #F5F0E8;
+            --bg-secondary: #E8E0D4;
+            --bg-card: #FFFFFF;
+            --accent-orange: #E85D04;
+            --accent-rust: #D00000;
+            --accent-amber: #FFBA08;
+            --text-dark: #1A1A1A;
+            --text-muted: #5A5A5A;
+            --border-dark: #2A2A2A;
+            --border-light: #D4D0C8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Crimson Pro', Georgia, serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text-dark);
+        }
+
+        .grain-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            z-index: 1000;
+        }
+
+        .header {
+            background: var(--text-dark);
+            padding: 20px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--bg-primary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .user-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent-amber);
+            letter-spacing: 1px;
+        }
+
+        .logout-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 10px 20px;
+            background: transparent;
+            color: var(--bg-primary);
+            border: 1px solid rgba(255,255,255,0.3);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: var(--accent-rust);
+            border-color: var(--accent-rust);
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 64px 48px;
+        }
+
+        .page-header {
+            margin-bottom: 64px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid var(--border-dark);
+            padding-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+
+        .page-subtitle {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            background: var(--border-dark);
+            border: 2px solid var(--border-dark);
+        }
+
+        .module-card {
+            background: var(--bg-card);
+            padding: 40px 32px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            min-height: 280px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 0;
+            background: var(--accent-orange);
+            transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .module-card:hover {
+            background: var(--bg-primary);
+        }
+
+        .module-card:hover::before {
+            height: 100%;
+        }
+
+        .module-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent-orange);
+            letter-spacing: 2px;
+            margin-bottom: 24px;
+        }
+
+        .module-icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+            filter: grayscale(100%);
+            transition: filter 0.3s;
+        }
+
+        .module-card:hover .module-icon {
+            filter: grayscale(0%);
+        }
+
+        .module-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .module-desc {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            flex-grow: 1;
+        }
+
+        .module-arrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            color: var(--border-light);
+            margin-top: 24px;
+            transition: color 0.3s, transform 0.3s;
+        }
+
+        .module-card:hover .module-arrow {
+            color: var(--accent-orange);
+            transform: translateX(8px);
+        }
+
+        .dev-badge {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            padding: 12px 20px;
+            background: var(--text-dark);
+            color: var(--accent-amber);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .dev-badge:hover {
+            background: var(--accent-orange);
+            color: var(--text-dark);
+        }
+
+        @media (max-width: 1024px) {
+            .modules-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .main-container {
+                padding: 48px 32px;
+            }
+
+            .page-title {
+                font-size: 42px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 16px 24px;
+            }
+
+            .main-container {
+                padding: 32px 24px;
+            }
+
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .page-title {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain-overlay"></div>
+
+    <header class="header">
+        <div class="logo">CV Lab</div>
+        <div class="header-actions">
+            <span class="user-badge">Dashboard</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Select Module</h1>
+            </div>
+            <div class="page-subtitle">7 Advanced CV Modules Available</div>
+        </div>
+
+        <div class="modules-grid">
+            <a href="/module1" class="module-card">
+                <div class="module-number">MODULE 01</div>
+                <div class="module-icon">📐</div>
+                <div class="module-title">Dimension Estimation</div>
+                <div class="module-desc">Real-world dimension estimation using perspective projection and camera calibration techniques.</div>
+                <div class="module-arrow">→</div>
+            </a>
+
+            <a href="/module2" class="module-card">
+                <div class="module-number">MODULE 02</div>
+                <div class="module-icon">🔎</div>
+                <div class="module-title">Template Matching</div>
+                <div class="module-desc">Template matching & Fourier restoration with multiple object detection capabilities.</div>
+                <div class="module-arrow">→</div>
+            </a>
+
+            <a href="/module3" class="module-card">
+                <div class="module-number">MODULE 03</div>
+                <div class="module-icon">◎</div>
+                <div class="module-title">Feature Detection</div>
+                <div class="module-desc">Comprehensive feature detection with gradients, edges, corners, and segmentation analysis.</div>
+                <div class="module-arrow">→</div>
+            </a>
+
+            <a href="/module4" class="module-card">
+                <div class="module-number">MODULE 04</div>
+                <div class="module-icon">🖼</div>
+                <div class="module-title">Image Stitching</div>
+                <div class="module-desc">Panorama generation with custom SIFT implementation and homography estimation.</div>
+                <div class="module-arrow">→</div>
+            </a>
+
+            <a href="/module5" class="module-card">
+                <div class="module-number">MODULE 05-06</div>
+                <div class="module-icon">◉</div>
+                <div class="module-title">Object Tracking</div>
+                <div class="module-desc">Real-time object tracking with marker-based and marker-less detection methods.</div>
+                <div class="module-arrow">→</div>
+            </a>
+
+            <a href="/module7" class="module-card">
+                <div class="module-number">MODULE 07</div>
+                <div class="module-icon">✋</div>
+                <div class="module-title">Pose & Hand</div>
+                <div class="module-desc">AI-powered pose estimation and hand tracking with gesture recognition.</div>
+                <div class="module-arrow">→</div>
+            </a>
+        </div>
+    </main>
+
+    <button class="dev-badge" onclick="location.href='/dev-login'">Dev Mode</button>
+
+    <script>
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (err) {
+                console.error('Logout error:', err);
+                window.location.href = '/';
+            }
+        }
+    </script>
+</body>
+</html>

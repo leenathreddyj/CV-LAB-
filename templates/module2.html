@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 2 | Template Matching | CV Lab</title>
+    <link rel="stylesheet" href="/static/css/module.css">
+    <style>
+        .results-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+        
+        .result-panel {
+            background: var(--bg-card);
+            border: 2px solid var(--border-dark);
+            padding: 20px;
+        }
+        
+        .result-panel h4 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--accent-orange);
+            margin: 0 0 16px 0;
+        }
+        
+        .result-panel img {
+            width: 100%;
+            border: 2px solid var(--border-dark);
+        }
+        
+        .detection-badge {
+            display: inline-block;
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            padding: 4px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+        
+        .param-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .param-row label {
+            min-width: 100px;
+            margin-bottom: 0;
+        }
+        
+        .param-row input[type="range"] {
+            flex: 1;
+        }
+        
+        .param-row .value {
+            min-width: 50px;
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent-orange);
+        }
+        
+        .template-preview {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            margin-bottom: 8px;
+        }
+        
+        .template-preview img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border: 2px solid var(--border-dark);
+        }
+        
+        .template-preview .info {
+            flex: 1;
+        }
+        
+        .template-preview .name {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 14px;
+        }
+        
+        .template-preview .size {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        
+        .template-preview .remove-btn {
+            background: transparent;
+            border: 1px solid var(--accent-rust);
+            color: var(--accent-rust);
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+        
+        .template-preview .remove-btn:hover {
+            background: var(--accent-rust);
+            color: var(--bg-primary);
+        }
+        
+        @media (max-width: 768px) {
+            .results-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Module 02: Template Matching</h1>
+        <a href="/dashboard" class="back-btn">← Dashboard</a>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('template')">Template Matching</button>
+            <button class="tab" onclick="showTab('fourier')">Fourier Restoration</button>
+        </div>
+
+        <div id="templateTab" class="tab-content active">
+            <div class="section">
+                <h2>Template Matching</h2>
+                <div class="info-box">
+                    <strong>How it works:</strong> Upload a template image and a scene image. 
+                    The system uses <code>cv.matchTemplate()</code> with <strong>TM_CCOEFF_NORMED</strong> 
+                    (normalized cross-correlation) to find the template in the scene.
+                </div>
+
+                <div class="grid">
+                    <div>
+                        <h3>Template Image</h3>
+                        <input type="file" id="templateInput" accept="image/*" multiple onchange="loadTemplates(event)" style="display:none">
+                        <div class="controls">
+                            <button class="btn-primary" onclick="document.getElementById('templateInput').click()">+ Add Template</button>
+                            <button class="btn-danger" onclick="clearTemplates()">Clear All</button>
+                        </div>
+                        <div class="stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Templates Loaded:</span>
+                                <span class="stat-value" id="templateCount">0</span>
+                            </div>
+                        </div>
+                        <div id="templateList" style="margin-top: 20px; max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div>
+                        <h3>Scene Image</h3>
+                        <input type="file" id="sceneInput" accept="image/*" onchange="loadScene(event)" style="display:none">
+                        <div class="controls">
+                            <button class="btn-primary" onclick="document.getElementById('sceneInput').click()">Upload Scene</button>
+                        </div>
+                        <canvas id="sceneCanvas" style="width: 100%; max-width: 500px; margin-top: 20px;"></canvas>
+                    </div>
+                </div>
+
+                <div class="stats" style="margin-top: 32px;">
+                    <h3>Settings</h3>
+                    <div class="param-row">
+                        <label>Threshold:</label>
+                        <input type="range" id="threshold" min="0.5" max="0.99" step="0.01" value="0.8" oninput="updateThreshold()">
+                        <span class="value" id="thresholdValue">0.80</span>
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+                        Higher threshold = stricter matching. Lower it if no match is found.
+                    </p>
+                </div>
+
+                <button id="matchBtn" class="btn-primary" onclick="matchTemplates()" disabled style="width: 100%; margin-top: 32px; padding: 18px;">
+                    Find Template in Scene
+                </button>
+
+                <div class="progress-container" id="matchProgress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="matchProgressFill">0%</div>
+                    </div>
+                    <div class="progress-text" id="matchProgressText">Processing...</div>
+                </div>
+
+                <div class="loading-spinner" id="matchSpinner"></div>
+                <div id="matchResults"></div>
+            </div>
+        </div>
+
+        <div id="fourierTab" class="tab-content" style="display:none;">
+            <div class="section">
+                <h2>Fourier Restoration</h2>
+                <div class="info-box">
+                    <strong>Process:</strong> Apply Gaussian blur to an image and restore it using frequency domain filtering.
+                </div>
+
+                <input type="file" id="fourierInput" accept="image/*" onchange="loadFourierImage(event)" style="display:none">
+                <div class="controls">
+                    <button class="btn-primary" onclick="document.getElementById('fourierInput').click()">Upload Image</button>
+                    <button class="btn-danger" onclick="clearFourier()">Clear</button>
+                </div>
+
+                <div class="stats" style="margin: 32px 0;">
+                    <h3>Parameters</h3>
+                    <div class="param-row">
+                        <label>Kernel Size:</label>
+                        <input type="range" id="kernelSize" min="5" max="31" step="2" value="15" oninput="updateLabels()">
+                        <span class="value" id="kernelLabel">15</span>
+                    </div>
+                    <div class="param-row">
+                        <label>Sigma:</label>
+                        <input type="range" id="sigma" min="1" max="10" step="0.5" value="3" oninput="updateLabels()">
+                        <span class="value" id="sigmaLabel">3.0</span>
+                    </div>
+                    <div style="margin-top: 16px;">
+                        <label>Restoration Method:</label>
+                        <select id="method">
+                            <option value="wiener">Wiener Filter</option>
+                            <option value="richardson_lucy">Richardson-Lucy</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="fourierBtn" class="btn-primary" onclick="processBlurRestore()" disabled style="width: 100%;">
+                    Blur & Restore
+                </button>
+
+                <div class="progress-container" id="fourierProgress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="fourierProgressFill">0%</div>
+                    </div>
+                    <div class="progress-text" id="fourierProgressText">Processing...</div>
+                </div>
+
+                <div class="loading-spinner" id="fourierSpinner"></div>
+                <div class="results-grid" id="fourierResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let templates = [];
+        let templateData = [];
+        let sceneImage = null;
+        let fourierImage = null;
+
+        function showTab(tab) {
+            document.getElementById('templateTab').style.display = tab === 'template' ? 'block' : 'none';
+            document.getElementById('fourierTab').style.display = tab === 'fourier' ? 'block' : 'none';
+            
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function updateThreshold() {
+            document.getElementById('thresholdValue').textContent = parseFloat(document.getElementById('threshold').value).toFixed(2);
+        }
+
+        async function loadTemplates(event) {
+            const files = Array.from(event.target.files);
+            if (!files || files.length === 0) return;
+
+            for (let file of files) {
+                const reader = new FileReader();
+                await new Promise((resolve) => {
+                    reader.onload = async function(e) {
+                        const img = new Image();
+                        img.onload = async function() {
+                            try {
+                                const response = await fetch('/api/module2/add_template', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        image: e.target.result,
+                                        name: file.name.replace(/\.[^/.]+$/, "")
+                                    })
+                                });
+                                const data = await response.json();
+                                if (data.success) {
+                                    templates.push({ 
+                                        name: file.name.replace(/\.[^/.]+$/, ""), 
+                                        data: e.target.result,
+                                        width: img.width,
+                                        height: img.height
+                                    });
+                                    templateData.push(e.target.result);
+                                }
+                            } catch (err) {
+                                console.error('Error:', err);
+                            }
+                            resolve();
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            updateTemplatesList();
+            updateMatchButton();
+        }
+
+        function updateTemplatesList() {
+            const listDiv = document.getElementById('templateList');
+            document.getElementById('templateCount').textContent = templates.length;
+            
+            listDiv.innerHTML = templates.map((t, i) => `
+                <div class="template-preview">
+                    <img src="${t.data}" alt="${t.name}">
+                    <div class="info">
+                        <div class="name">${t.name}</div>
+                        <div class="size">${t.width} × ${t.height}px</div>
+                    </div>
+                    <button class="remove-btn" onclick="removeTemplate(${i})">×</button>
+                </div>
+            `).join('');
+        }
+
+        async function removeTemplate(index) {
+            templates.splice(index, 1);
+            templateData.splice(index, 1);
+            
+            await fetch('/api/module2/clear_templates', { method: 'POST' });
+            for (let i = 0; i < templates.length; i++) {
+                await fetch('/api/module2/add_template', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: templateData[i], name: templates[i].name })
+                });
+            }
+            
+            updateTemplatesList();
+            updateMatchButton();
+        }
+
+        async function clearTemplates() {
+            templates = [];
+            templateData = [];
+            await fetch('/api/module2/clear_templates', { method: 'POST' });
+            updateTemplatesList();
+            updateMatchButton();
+            document.getElementById('templateInput').value = '';
+            document.getElementById('matchResults').innerHTML = '';
+        }
+
+        function loadScene(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.getElementById('sceneCanvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    sceneImage = e.target.result;
+                    updateMatchButton();
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function updateMatchButton() {
+            document.getElementById('matchBtn').disabled = !(templates.length > 0 && sceneImage);
+        }
+
+        async function matchTemplates() {
+            if (!sceneImage || templates.length === 0) return;
+
+            const progressContainer = document.getElementById('matchProgress');
+            const progressFill = document.getElementById('matchProgressFill');
+            const progressText = document.getElementById('matchProgressText');
+            const spinner = document.getElementById('matchSpinner');
+            const matchBtn = document.getElementById('matchBtn');
+            
+            matchBtn.disabled = true;
+            progressContainer.classList.add('active');
+            spinner.classList.add('active');
+            
+            progressFill.style.width = '20%';
+            progressFill.textContent = '20%';
+            progressText.textContent = 'Matching template...';
+
+            try {
+                const threshold = parseFloat(document.getElementById('threshold').value);
+
+                const response = await fetch('/api/module2/match_templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        image: sceneImage,
+                        threshold: threshold
+                    })
+                });
+                
+                progressFill.style.width = '80%';
+                progressFill.textContent = '80%';
+                progressText.textContent = 'Drawing results...';
+                
+                const data = await response.json();
+
+                if (data.success) {
+                    progressFill.style.width = '100%';
+                    progressFill.textContent = '100%';
+                    progressText.textContent = 'Done!';
+                    
+                    displayMatchResults(data.matches);
+                    setTimeout(() => progressContainer.classList.remove('active'), 1000);
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
+                    progressContainer.classList.remove('active');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+                progressContainer.classList.remove('active');
+            } finally {
+                spinner.classList.remove('active');
+                matchBtn.disabled = false;
+            }
+        }
+
+        function displayMatchResults(matches) {
+            const resultsDiv = document.getElementById('matchResults');
+            
+            if (!matches || matches.length === 0) {
+                resultsDiv.innerHTML = '<div class="info-box">No templates loaded.</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            for (const m of matches) {
+                const det = m.detections[0];
+                const confidence = det ? (det.confidence * 100).toFixed(1) : 0;
+                
+                html += `
+                    <div class="result-card" style="margin-top: 32px;">
+                        <h4>
+                            ${m.name}
+                            <span class="detection-badge">${confidence}% confidence</span>
+                        </h4>
+                        <img src="${m.result_image}" alt="Result">
+                        <div style="margin-top: 16px;">
+                            <button class="btn-secondary" onclick="downloadImage('${m.result_image}', '${m.name}_result.jpg')">
+                                Download Result
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        function loadFourierImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fourierImage = e.target.result;
+                document.getElementById('fourierBtn').disabled = false;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function clearFourier() {
+            fourierImage = null;
+            document.getElementById('fourierResults').innerHTML = '';
+            document.getElementById('fourierBtn').disabled = true;
+            document.getElementById('fourierInput').value = '';
+        }
+
+        function updateLabels() {
+            document.getElementById('kernelLabel').textContent = document.getElementById('kernelSize').value;
+            document.getElementById('sigmaLabel').textContent = parseFloat(document.getElementById('sigma').value).toFixed(1);
+        }
+
+        async function processBlurRestore() {
+            if (!fourierImage) return;
+
+            const kernelSize = parseInt(document.getElementById('kernelSize').value);
+            const sigma = parseFloat(document.getElementById('sigma').value);
+            const method = document.getElementById('method').value;
+            
+            const progressContainer = document.getElementById('fourierProgress');
+            const progressFill = document.getElementById('fourierProgressFill');
+            const progressText = document.getElementById('fourierProgressText');
+            const spinner = document.getElementById('fourierSpinner');
+            
+            progressContainer.classList.add('active');
+            spinner.classList.add('active');
+            
+            progressFill.style.width = '30%';
+            progressFill.textContent = '30%';
+            progressText.textContent = 'Applying blur...';
+
+            try {
+                const response = await fetch('/api/module2/blur_restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: fourierImage, kernel_size: kernelSize, sigma: sigma, method: method })
+                });
+                
+                progressFill.style.width = '70%';
+                progressFill.textContent = '70%';
+                progressText.textContent = 'Restoring...';
+                
+                const data = await response.json();
+
+                if (data.success) {
+                    progressFill.style.width = '100%';
+                    progressFill.textContent = '100%';
+                    progressText.textContent = 'Done!';
+                    
+                    displayFourierResults(data);
+                    setTimeout(() => progressContainer.classList.remove('active'), 1000);
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
+                    progressContainer.classList.remove('active');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+                progressContainer.classList.remove('active');
+            } finally {
+                spinner.classList.remove('active');
+            }
+        }
+
+        function displayFourierResults(data) {
+            document.getElementById('fourierResults').innerHTML = `
+                <div class="result-card">
+                    <h4>Original</h4>
+                    <img src="${data.original}" alt="Original">
+                    <button class="btn-secondary" onclick="downloadImage('${data.original}', 'original.jpg')" style="margin-top: 12px;">Download</button>
+                </div>
+                <div class="result-card">
+                    <h4>Blurred (${data.kernel_size}px, σ=${data.sigma})</h4>
+                    <img src="${data.blurred}" alt="Blurred">
+                    <button class="btn-secondary" onclick="downloadImage('${data.blurred}', 'blurred.jpg')" style="margin-top: 12px;">Download</button>
+                </div>
+                <div class="result-card">
+                    <h4>Restored (${data.method === 'wiener' ? 'Wiener' : 'RL'})</h4>
+                    <img src="${data.restored}" alt="Restored">
+                    <button class="btn-secondary" onclick="downloadImage('${data.restored}', 'restored.jpg')" style="margin-top: 12px;">Download</button>
+                </div>
+            `;
+        }
+
+        function downloadImage(dataUrl, filename) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = filename;
+            link.click();
+        }
+
+        window.addEventListener('beforeunload', async () => {
+            await fetch('/api/module2/clear_templates', { method: 'POST' });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 7 | Pose & Hand Tracking | CV Lab</title>
+    <link rel="stylesheet" href="/static/css/module.css">
+    <style>
+        .video-container {
+            position: relative;
+            max-width: 640px;
+            margin: 32px auto;
+            background: var(--text-dark);
+            border: 2px solid var(--border-dark);
+        }
+        
+        #canvas {
+            width: 100%;
+            background: var(--text-dark);
+            border: none;
+        }
+        
+        .overlay-fps {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--text-dark);
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 16px;
+        }
+        
+        .mode-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .mode-option {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--border-light);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .mode-option:hover {
+            border-color: var(--accent-orange);
+        }
+        
+        .mode-option input[type="radio"] {
+            margin-right: 12px;
+        }
+        
+        .mode-option.selected {
+            border-color: var(--accent-orange);
+            background: var(--bg-secondary);
+        }
+        
+        .detection-panel {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border: 1px solid var(--border-light);
+            margin-top: 16px;
+        }
+        
+        .detection-panel h4 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--accent-orange);
+            margin-bottom: 16px;
+        }
+        
+        .gesture-display {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Module 07: Pose Estimation & Hand Tracking</h1>
+        <a href="/dashboard" class="back-btn">← Dashboard</a>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <h2>Real-Time AI Tracking</h2>
+            <div class="info-box">
+                <strong>AI-Powered:</strong> Real-time skeleton pose estimation (33 landmarks) and hand tracking (21 landmarks per hand) with gesture recognition and detailed status display.
+            </div>
+
+            <div class="stats">
+                <h3>Tracking Mode</h3>
+                <div class="mode-toggle">
+                    <label class="mode-option selected">
+                        <input type="radio" name="mode" value="pose" checked>
+                        <span>Pose Estimation (33 landmarks)</span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="mode" value="hand">
+                        <span>Hand Tracking (21 landmarks)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="startBtn" class="btn-primary" onclick="startTracking()">Start Camera</button>
+                <button id="stopBtn" class="btn-danger" onclick="stopTracking()" disabled>Stop Camera</button>
+                <button class="btn-secondary" onclick="downloadCSV()">Download CSV</button>
+                <button class="btn-secondary" onclick="resetData()">Reset Statistics</button>
+            </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+                <div class="progress-text" id="progressText">Initializing...</div>
+            </div>
+
+            <div class="video-container">
+                <video id="video" autoplay playsinline style="display:none;"></video>
+                <canvas id="canvas"></canvas>
+                <div class="overlay-fps" id="fpsCounter">FPS: 0</div>
+            </div>
+
+            <div class="stats">
+                <h3>Live Statistics</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Frames Processed:</span>
+                    <span class="stat-value" id="frameCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Current FPS:</span>
+                    <span class="stat-value" id="fpsDisplay">0</span>
+                </div>
+            </div>
+
+            <div class="stats" style="margin-top: 24px;">
+                <h3>Detection Status</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Status:</span>
+                    <span class="stat-value" id="detectionStatus">Waiting...</span>
+                </div>
+                
+                <div id="poseDetails" class="detection-panel" style="display: none;">
+                    <h4>Pose Details</h4>
+                    <div class="stat-item">
+                        <span class="stat-label">Landmarks Detected:</span>
+                        <span class="stat-value" id="landmarkCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Body Position:</span>
+                        <span class="stat-value" id="bodyPosition">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Visibility:</span>
+                        <span class="stat-value" id="visibility">-</span>
+                    </div>
+                </div>
+                
+                <div id="handDetails" class="detection-panel" style="display: none;">
+                    <h4>Hand Details</h4>
+                    <div class="stat-item">
+                        <span class="stat-label">Hands Detected:</span>
+                        <span class="stat-value" id="handCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Hand Type:</span>
+                        <span class="stat-value" id="handType">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Gesture:</span>
+                        <span class="stat-value gesture-display" id="gesture">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Landmarks:</span>
+                        <span class="stat-value" id="handLandmarkCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>CSV Data Export</h2>
+            <div class="info-box">
+                <strong>Data logging:</strong> All landmark data is automatically logged with frame numbers. Download CSV for analysis in Excel or Python.
+            </div>
+            <ul style="color: var(--text-muted); line-height: 2; margin-top: 16px; padding-left: 24px;">
+                <li>Pose data: 33 landmarks with x, y, z coordinates and visibility scores</li>
+                <li>Hand data: 21 landmarks per hand with 3D coordinates</li>
+                <li>Format: Each row represents one frame with all landmark positions</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let stream = null;
+        let processing = false;
+        let frameCount = 0;
+        let isProcessingFrame = false;
+        let lastFrameTime = 0;
+        let fps = 0;
+        let animationId = null;
+
+        // Mode selection styling
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('selected'));
+                radio.closest('.mode-option').classList.add('selected');
+            });
+        });
+
+        async function startTracking() {
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            progressContainer.classList.add('active');
+            progressFill.style.width = '20%';
+            progressFill.textContent = '20%';
+            progressText.textContent = 'Starting camera...';
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
+                    } 
+                });
+                
+                video.srcObject = stream;
+                
+                progressFill.style.width = '50%';
+                progressFill.textContent = '50%';
+                progressText.textContent = 'Loading AI models...';
+                
+                await video.play();
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                processing = true;
+                isProcessingFrame = false;
+                
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                
+                progressFill.style.width = '100%';
+                progressFill.textContent = '100%';
+                progressText.textContent = 'Ready! Tracking...';
+                
+                setTimeout(() => progressContainer.classList.remove('active'), 800);
+                
+                processFrame();
+                
+            } catch (err) {
+                alert('Camera error: ' + err.message);
+                progressContainer.classList.remove('active');
+            }
+        }
+
+        function stopTracking() {
+            processing = false;
+            isProcessingFrame = false;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            video.srcObject = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        async function processFrame() {
+            if (!processing) return;
+
+            if (isProcessingFrame) {
+                animationId = requestAnimationFrame(processFrame);
+                return;
+            }
+
+            isProcessingFrame = true;
+
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                const mode = document.querySelector('input[name="mode"]:checked').value;
+
+                const endpoint = mode === 'pose' ? '/api/module7/pose' : '/api/module7/hand';
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.image) {
+                    const img = new Image();
+                    img.onload = () => {
+                        if (processing) {
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            frameCount++;
+                            updateStats(data, mode);
+                            updateFPS();
+                        }
+                    };
+                    img.src = data.image;
+                } else {
+                    frameCount++;
+                    updateStats(data, mode);
+                }
+                
+            } catch (err) {
+                console.error('Processing error:', err);
+            }
+
+            isProcessingFrame = false;
+            
+            setTimeout(() => {
+                if (processing) {
+                    animationId = requestAnimationFrame(processFrame);
+                }
+            }, 33);
+        }
+
+        function updateFPS() {
+            const now = performance.now();
+            if (lastFrameTime > 0) {
+                const delta = now - lastFrameTime;
+                fps = Math.round(1000 / delta);
+                document.getElementById('fpsCounter').textContent = `FPS: ${fps}`;
+                document.getElementById('fpsDisplay').textContent = fps;
+            }
+            lastFrameTime = now;
+        }
+
+        function updateStats(data, mode) {
+            document.getElementById('frameCount').textContent = frameCount;
+            
+            const status = document.getElementById('detectionStatus');
+            const poseDetails = document.getElementById('poseDetails');
+            const handDetails = document.getElementById('handDetails');
+            
+            if (mode === 'pose') {
+                const detected = data.pose_detected || false;
+                handDetails.style.display = 'none';
+                poseDetails.style.display = detected ? 'block' : 'none';
+                
+                if (detected) {
+                    status.textContent = 'Pose Detected';
+                    status.style.color = 'var(--accent-green)';
+                    
+                    const poseData = data.pose_data || {};
+                    document.getElementById('landmarkCount').textContent = '33 landmarks';
+                    
+                    let bodyPosition = 'Standing';
+                    let avgVisibility = 'Good';
+                    
+                    if (poseData && Object.keys(poseData).length > 0) {
+                        bodyPosition = estimateBodyPosition(poseData);
+                        avgVisibility = estimateVisibility(poseData);
+                    }
+                    
+                    document.getElementById('bodyPosition').textContent = bodyPosition;
+                    document.getElementById('visibility').textContent = avgVisibility;
+                } else {
+                    status.textContent = 'No Pose Detected';
+                    status.style.color = 'var(--accent-rust)';
+                }
+            } else {
+                const detected = data.hands_detected || false;
+                poseDetails.style.display = 'none';
+                handDetails.style.display = detected ? 'block' : 'none';
+                
+                if (detected) {
+                    status.textContent = 'Hand(s) Detected';
+                    status.style.color = 'var(--accent-green)';
+                    
+                    const handData = data.hand_data || {};
+                    const numHands = handData.num_hands || 1;
+                    document.getElementById('handCount').textContent = numHands;
+                    
+                    let handType = '-';
+                    if (handData.hand_0_type) {
+                        if (numHands === 1) {
+                            handType = handData.hand_0_type;
+                        } else {
+                            const hand1 = handData.hand_0_type || '';
+                            const hand2 = handData.hand_1_type || '';
+                            handType = `${hand1}${hand2 ? ' + ' + hand2 : ''}`;
+                        }
+                    }
+                    document.getElementById('handType').textContent = handType;
+                    
+                    const gesture = data.gesture || 'Unknown';
+                    document.getElementById('gesture').textContent = gesture;
+                    
+                    const landmarkCount = numHands * 21;
+                    document.getElementById('handLandmarkCount').textContent = `${landmarkCount} (${numHands} × 21)`;
+                } else {
+                    status.textContent = 'No Hands Detected';
+                    status.style.color = 'var(--accent-rust)';
+                }
+            }
+        }
+        
+        function estimateBodyPosition(poseData) {
+            try {
+                if (!poseData || Object.keys(poseData).length === 0) return 'Detected';
+                
+                const leftShoulder = { y: poseData.LEFT_SHOULDER_y };
+                const rightShoulder = { y: poseData.RIGHT_SHOULDER_y };
+                const leftHip = { y: poseData.LEFT_HIP_y };
+                const rightHip = { y: poseData.RIGHT_HIP_y };
+                const leftKnee = { y: poseData.LEFT_KNEE_y };
+                const rightKnee = { y: poseData.RIGHT_KNEE_y };
+                const leftAnkle = { y: poseData.LEFT_ANKLE_y };
+                const rightAnkle = { y: poseData.RIGHT_ANKLE_y };
+                
+                if (leftShoulder.y === undefined || leftHip.y === undefined) return 'Detected';
+                
+                const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+                const avgHipY = (leftHip.y + rightHip.y) / 2;
+                const avgKneeY = (leftKnee.y + rightKnee.y) / 2;
+                const avgAnkleY = (leftAnkle.y + rightAnkle.y) / 2;
+                
+                const shoulderHipDiff = Math.abs(avgHipY - avgShoulderY);
+                const hipKneeDiff = Math.abs(avgKneeY - avgHipY);
+                const fullBodyExtent = Math.abs(avgAnkleY - avgShoulderY);
+                
+                if (hipKneeDiff < 0.12 && shoulderHipDiff < 0.25) return 'Sitting';
+                if (fullBodyExtent < 0.35 && hipKneeDiff < 0.15) return 'Crouching';
+                if (shoulderHipDiff < 0.1 && fullBodyExtent < 0.4) return 'Lying Down';
+                if (shoulderHipDiff > 0.15 && hipKneeDiff > 0.12 && fullBodyExtent > 0.45) return 'Standing';
+                if (shoulderHipDiff > 0.12 && shoulderHipDiff < 0.2) return 'Leaning';
+                
+                return 'Standing';
+            } catch (e) {
+                return 'Detected';
+            }
+        }
+        
+        function estimateVisibility(poseData) {
+            try {
+                if (!poseData || Object.keys(poseData).length === 0) return 'Unknown';
+                
+                let visibilitySum = 0;
+                let count = 0;
+                
+                for (const key in poseData) {
+                    if (key.endsWith('_visibility')) {
+                        const value = poseData[key];
+                        if (value !== undefined && value !== null) {
+                            visibilitySum += value;
+                            count++;
+                        }
+                    }
+                }
+                
+                if (count > 0) {
+                    const avgVisibility = visibilitySum / count;
+                    if (avgVisibility > 0.85) return 'Excellent (>85%)';
+                    if (avgVisibility > 0.70) return 'Good (>70%)';
+                    if (avgVisibility > 0.50) return 'Fair (>50%)';
+                    if (avgVisibility > 0.30) return 'Poor (>30%)';
+                    return 'Very Poor (<30%)';
+                }
+            } catch (e) {
+                console.error('Error estimating visibility:', e);
+            }
+            return 'Unknown';
+        }
+
+        async function downloadCSV() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const endpoint = mode === 'pose' ? '/api/module7/save_pose_csv' : '/api/module7/save_hand_csv';
+            
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    
+                    if (contentType && contentType.includes('text/csv')) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        
+                        const disposition = response.headers.get('content-disposition');
+                        let filename = mode === 'pose' ? 'pose_data.csv' : 'hand_data.csv';
+                        if (disposition && disposition.includes('filename=')) {
+                            const matches = disposition.match(/filename="?(.+)"?/);
+                            if (matches && matches[1]) {
+                                filename = matches[1];
+                            }
+                        }
+                        
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        alert('CSV downloaded: ' + filename);
+                    } else {
+                        const data = await response.json();
+                        alert(data.message || 'No data to download');
+                    }
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'No data available');
+                }
+            } catch (err) {
+                alert('Download error: ' + err.message);
+            }
+        }
+
+        async function resetData() {
+            if (!confirm('Reset all statistics and clear CSV data?')) return;
+            
+            try {
+                const response = await fetch('/api/module7/reset_data', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    frameCount = 0;
+                    fps = 0;
+                    document.getElementById('frameCount').textContent = '0';
+                    document.getElementById('fpsDisplay').textContent = '0';
+                    document.getElementById('detectionStatus').textContent = 'Waiting...';
+                    document.getElementById('detectionStatus').style.color = 'var(--accent-orange)';
+                    alert('Statistics reset successfully');
+                } else {
+                    alert('Reset failed: ' + data.message);
+                }
+            } catch (err) {
+                alert('Reset error: ' + err.message);
+            }
+        }
+
+        function cleanupResources() {
+            processing = false;
+            isProcessingFrame = false;
+            
+            if (animationId) cancelAnimationFrame(animationId);
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            if (video.srcObject) video.srcObject = null;
+            
+            frameCount = 0;
+        }
+        
+        window.addEventListener('beforeunload', cleanupResources);
+        window.addEventListener('pagehide', cleanupResources);
+    </script>
+</body>
+</html>
