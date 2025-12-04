@@ -452,39 +452,28 @@
             let html = '';
             
             for (const m of matches) {
-                // Get the best detection (highest confidence)
-                let confidence = 0;
+                // Check if template was detected
                 let numDetections = 0;
-                let confidenceText = '';
+                let isDetected = false;
                 
                 // Check detections array
                 if (m.detections && Array.isArray(m.detections) && m.detections.length > 0) {
                     numDetections = m.detections.length;
-                    // Find the highest confidence detection
-                    let bestConfidence = 0;
-                    for (const det of m.detections) {
-                        if (det && typeof det.confidence === 'number' && det.confidence > bestConfidence) {
-                            bestConfidence = det.confidence;
-                        }
-                    }
-                    if (bestConfidence > 0) {
-                        confidence = (bestConfidence * 100).toFixed(1);
-                        confidenceText = `<span class="detection-badge">${confidence}% confidence</span>`;
-                    }
-                } else if (m.num_detections !== undefined) {
+                    isDetected = true;
+                } else if (m.num_detections !== undefined && m.num_detections > 0) {
                     numDetections = m.num_detections;
+                    isDetected = true;
                 }
                 
-                const detectionText = numDetections > 0 
-                    ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 12px;">${numDetections} detection(s)</span>`
-                    : '<span style="font-family: \'JetBrains Mono\', monospace; font-size: 11px; color: var(--accent-rust); margin-left: 12px;">No detections</span>';
+                const statusBadge = isDetected 
+                    ? '<span class="detection-badge" style="background: var(--accent-green); color: var(--bg-primary);">Detected</span>'
+                    : '<span class="detection-badge" style="background: var(--accent-rust); color: var(--bg-primary);">Not Detected</span>';
                 
                 html += `
                     <div class="result-card" style="margin-top: 32px;">
                         <h4>
                             ${m.name}
-                            ${confidenceText}
-                            ${detectionText}
+                            ${statusBadge}
                         </h4>
                         <img src="${m.result_image}" alt="Result">
                         <div style="margin-top: 16px;">
