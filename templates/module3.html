@@ -90,6 +90,16 @@
                 <strong>Comprehensive CV Analysis:</strong> Gradient magnitude & angle visualization, Laplacian of Gaussian (LoG), custom edge detection (NMS + Hysteresis), Harris corner detection, contour-based boundary detection, and ArUco marker segmentation.
             </div>
 
+            <div id="arucoInfo" class="info-box" style="display: none; background: rgba(232, 93, 4, 0.1); border-left-color: var(--accent-orange);">
+                <strong>ArUco Marker Instructions:</strong>
+                <ul style="margin: 12px 0 0 20px; line-height: 1.8;">
+                    <li>Print ArUco markers from <a href="https://chev.me/arucogen/" target="_blank" style="color: var(--accent-orange); text-decoration: underline; font-weight: 600;">https://chev.me/arucogen/</a></li>
+                    <li>Use <strong>DICT_6X6_250</strong> dictionary (default in generator)</li>
+                    <li>Place markers in your image and upload for segmentation</li>
+                    <li>Markers will be detected and boundaries will be drawn</li>
+                </ul>
+            </div>
+
             <div class="stats">
                 <h3>Processing Mode</h3>
                 <div class="mode-grid">
@@ -218,11 +228,17 @@
                 const mode = radio.value;
                 document.getElementById('edgeParams').style.display = (mode === 'edges') ? 'block' : 'none';
                 document.getElementById('cornerParams').style.display = (mode === 'corners') ? 'block' : 'none';
+                document.getElementById('arucoInfo').style.display = (mode === 'aruco') ? 'block' : 'none';
                 
                 document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('selected'));
                 radio.closest('.mode-option').classList.add('selected');
             });
         });
+        
+        // Show ArUco info if ArUco mode is selected on page load
+        if (document.querySelector('input[name="mode"][value="aruco"]').checked) {
+            document.getElementById('arucoInfo').style.display = 'block';
+        }
 
         function loadImage(event) {
             const file = event.target.files[0];
@@ -305,8 +321,18 @@
                         const endTime = performance.now();
                         const processingTime = Math.round(endTime - startTime);
                         
-                        document.getElementById('status').textContent = data.message || 'Complete';
-                        document.getElementById('status').style.color = 'var(--accent-green)';
+                        // Display status message with special handling for ArUco
+                        const statusEl = document.getElementById('status');
+                        const message = data.message || 'Complete';
+                        
+                        if (message.includes('No ArUco markers detected')) {
+                            // Create a message with clickable link
+                            statusEl.innerHTML = 'No ArUco markers detected. <a href="https://chev.me/arucogen/" target="_blank" style="color: var(--accent-orange); text-decoration: underline;">Print markers here</a>';
+                            statusEl.style.color = 'var(--accent-rust)';
+                        } else {
+                            statusEl.textContent = message;
+                            statusEl.style.color = 'var(--accent-green)';
+                        }
                         
                         if (data.count !== undefined && data.count !== null) {
                             document.getElementById('detectionCount').style.display = 'flex';
