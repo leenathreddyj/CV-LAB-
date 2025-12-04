@@ -360,55 +360,78 @@ class ImageStitching:
         return pan_result
     
     def stitch_pair(self, img1, img2, use_custom_sift=False):
-        """Stitch two images using SIFT and homography (improved approach)"""
+        """Stitch two images using SIFT and homography - OpenCV standard approach"""
         # Convert to grayscale for SIFT
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY) if len(img1.shape) == 3 else img1
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY) if len(img2.shape) == 3 else img2
+        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY) if len(img1.shape) == 3 else img1.copy()
+        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY) if len(img2.shape) == 3 else img2.copy()
         
         # Detect and compute SIFT features
         kp1, des1 = self.sift.detectAndCompute(gray1, None)
         kp2, des2 = self.sift.detectAndCompute(gray2, None)
         
         if des1 is None or des2 is None or len(des1) < 4 or len(des2) < 4:
-            print(f"  ⚠️ Insufficient features: img1={len(des1) if des1 is not None else 0}, img2={len(des2) if des2 is not None else 0}")
             return None
         
-        # Use BFMatcher (Brute Force) as in reference code
+        # Use BFMatcher with ratio test
         bf = cv2.BFMatcher()
         matches = bf.knnMatch(des2, des1, k=2)
         
-        # Apply ratio test (0.6 as in reference code)
+        # Apply Lowe's ratio test (0.6 as in reference)
         good_matches = []
-        for m, n in matches:
-            if m.distance < 0.6 * n.distance:
-                good_matches.append(m)
+        for match_pair in matches:
+            if len(match_pair) == 2:
+                m, n = match_pair
+                if m.distance < 0.6 * n.distance:
+                    good_matches.append(m)
         
         if len(good_matches) < 4:
-            print(f"  ⚠️ Insufficient good matches: {len(good_matches)}")
             return None
         
-        # Extract matching points (query from img2, train from img1)
+        # Extract matching points - img2 (query) to img1 (train)
         query_pts = np.float32([kp2[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         train_pts = np.float32([kp1[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         
-        # Find homography using RANSAC (threshold 5.0 as in reference)
+        # Find homography using RANSAC
         H, mask = cv2.findHomography(query_pts, train_pts, cv2.RANSAC, 5.0)
         
         if H is None:
-            print("  ⚠️ Homography computation failed")
             return None
         
-        # Warp img2 and place img1 (as in reference code)
+        # Get image dimensions
         h1, w1 = img1.shape[:2]
         h2, w2 = img2.shape[:2]
         
-        # Warp img2 to the size that can contain both images
-        dst = cv2.warpPerspective(img2, H, (w1 + w2, h2))
+        # Get corners of both images
+        corners1 = np.float32([[0, 0], [0, h1], [w1, h1], [w1, 0]]).reshape(-1, 1, 2)
+        corners2 = np.float32([[0, 0], [0, h2], [w2, h2], [w2, 0]]).reshape(-1, 1, 2)
         
-        # Place img1 in the warped result
-        dst[0:h1, 0:w1] = img1
+        # Transform corners of img2
+        corners2_transformed = cv2.perspectiveTransform(corners2, H)
         
-        return dst
+        # Find bounding box
+        all_corners = np.concatenate([corners1, corners2_transformed], axis=0)
+        [x_min, y_min] = np.int32(all_corners.min(axis=0).ravel() - 0.5)
+        [x_max, y_max] = np.int32(all_corners.max(axis=0).ravel() + 0.5)
+        
+        # Translation matrix to shift to positive coordinates
+        translation = np.array([[1, 0, -x_min], [0, 1, -y_min], [0, 0, 1]])
+        H_translated = translation @ H
+        
+        # Warp both images
+        output_width = x_max - x_min
+        output_height = y_max - y_min
+        
+        # Warp img2
+        warped_img2 = cv2.warpPerspective(img2, H_translated, (output_width, output_height))
+        
+        # Create mask for img1
+        mask1 = np.zeros((output_height, output_width), dtype=np.uint8)
+        mask1[-y_min:-y_min+h1, -x_min:-x_min+w1] = 255
+        
+        # Place img1 where mask indicates
+        warped_img2[-y_min:-y_min+h1, -x_min:-x_min+w1] = img1
+        
+        return warped_img2
     
     def find_homography_ransac(self, src_pts, dst_pts, max_iterations=500, threshold=4.0):
         """
