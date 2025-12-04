@@ -291,18 +291,31 @@
             progressText.textContent = 'Detecting keypoints...';
 
             try {
+                const controller = new AbortController();
+                // Longer timeout for custom SIFT (it's very slow)
+                const timeout = useCustom ? 300000 : 60000; // 5 min for custom, 1 min for OpenCV
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
                 const response = await fetch('/api/module4/sift_detect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         image: siftImage,
                         use_custom: useCustom
-                    })
+                    }),
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
                 
                 progressFill.style.width = '80%';
                 progressFill.textContent = '80%';
                 progressText.textContent = 'Computing descriptors...';
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
                 
                 const data = await response.json();
 
@@ -326,7 +339,14 @@
                     setTimeout(() => progressContainer.classList.remove('active'), 1500);
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                if (err.name === 'AbortError') {
+                    alert('Request timed out. Custom SIFT is very slow on large images. Try using OpenCV SIFT or a smaller image.');
+                } else if (err.message.includes('Not authenticated')) {
+                    alert('Session expired. Please log in again.');
+                    setTimeout(() => window.location.href = '/login', 1000);
+                } else {
+                    alert('Error: ' + err.message);
+                }
                 progressContainer.classList.remove('active');
             } finally {
                 spinner.classList.remove('active');

@@ -518,35 +518,74 @@ def register_api_routes(app):
             image_data = data.get('image')
             use_custom = data.get('use_custom', False)
             
+            if not image_data:
+                return jsonify({'success': False, 'message': 'No image data provided'}), 400
+            
             image = decode_image(image_data)
+            if image is None:
+                return jsonify({'success': False, 'message': 'Failed to decode image'}), 400
+            
+            # Resize image if too large (custom SIFT is very slow on large images)
+            h, w = image.shape[:2]
+            max_dimension = 800 if use_custom else 2000  # Smaller for custom SIFT
+            if max(h, w) > max_dimension:
+                scale = max_dimension / max(h, w)
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                print(f"[Module 4] Resized image for {'custom' if use_custom else 'OpenCV'} SIFT: {(h, w)} -> {(new_h, new_w)}")
             
             if use_custom:
-                sift = SIFTFromScratch()
-                keypoints, descriptors = sift.detect_and_compute(image)
-                
-                # Draw keypoints
-                result = image.copy()
-                for kp in keypoints:
-                    x, y = int(kp['x']), int(kp['y'])
-                    size = int(kp['size'])
-                    cv2.circle(result, (x, y), size, (0, 255, 0), 2)
-                
-                num_keypoints = len(keypoints)
+                print("[Module 4] Starting custom SIFT detection (this may take a while)...")
+                try:
+                    sift = SIFTFromScratch()
+                    keypoints, descriptors = sift.detect_and_compute(image)
+                    
+                    # Draw keypoints
+                    result = image.copy()
+                    for kp in keypoints[:500]:  # Limit to first 500 for display
+                        x, y = int(kp['x']), int(kp['y'])
+                        size = max(3, int(kp.get('size', 5)))
+                        cv2.circle(result, (x, y), size, (0, 255, 0), 2)
+                    
+                    num_keypoints = len(keypoints)
+                    method = 'custom'
+                    print(f"[Module 4] Custom SIFT detected {num_keypoints} keypoints")
+                except Exception as custom_err:
+                    print(f"[Module 4] Custom SIFT error: {str(custom_err)}")
+                    import traceback
+                    traceback.print_exc()
+                    return jsonify({
+                        'success': False, 
+                        'message': f'Custom SIFT failed: {str(custom_err)}. Try using OpenCV SIFT instead.'
+                    }), 500
             else:
                 sift = cv2.SIFT_create()
                 keypoints, descriptors = sift.detectAndCompute(image, None)
                 result = cv2.drawKeypoints(image, keypoints, None, 
                                           flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                 num_keypoints = len(keypoints)
+                method = 'opencv'
+                print(f"[Module 4] OpenCV SIFT detected {num_keypoints} keypoints")
+            
+            # Encode result image
+            try:
+                encoded_image = encode_image(result)
+            except Exception as encode_err:
+                print(f"[Module 4] Image encoding error: {str(encode_err)}")
+                return jsonify({'success': False, 'message': f'Failed to encode result image: {str(encode_err)}'}), 500
             
             return jsonify({
                 'success': True,
-                'image': encode_image(result),
+                'image': encoded_image,
                 'num_keypoints': num_keypoints,
-                'method': 'custom' if use_custom else 'opencv'
+                'method': method
             })
         except Exception as e:
-            return jsonify({'success': False, 'message': str(e)}), 500
+            print(f"[Module 4] SIFT detection exception: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     
     # ==================== MODULE 5-6 APIs ====================
     
