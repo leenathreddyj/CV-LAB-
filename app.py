@@ -52,11 +52,16 @@ register_error_handlers(app)
 from api_routes import register_api_routes
 register_api_routes(app)
 
-# Ensure directories exist
-os.makedirs('database', exist_ok=True)
-os.makedirs('uploads', exist_ok=True)
-os.makedirs('face_encodings', exist_ok=True)
-os.makedirs('templates', exist_ok=True)
+# Ensure directories exist (with error handling for Railway)
+try:
+    os.makedirs('database', exist_ok=True)
+    os.makedirs('uploads', exist_ok=True)
+    os.makedirs('face_encodings', exist_ok=True)
+    os.makedirs('templates', exist_ok=True)
+    os.makedirs('static', exist_ok=True)
+    os.makedirs('logs', exist_ok=True)
+except Exception as e:
+    app.logger.warning(f"Could not create directories: {str(e)}")
 
 # Database initialization with error handling
 def init_db():
@@ -515,5 +520,19 @@ if __name__ == '__main__':
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
 
 # For Railway/Gunicorn - ensure app is accessible
-app.logger.info('App initialized and ready')
+# Add a health check route
+@app.route('/health')
+def health():
+    """Health check endpoint for Railway"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
+# Log app initialization
+try:
+    app.logger.info('App initialized and ready')
+    print("✓ App initialized successfully")
+except Exception as e:
+    print(f"⚠️ Warning during app initialization: {str(e)}")
 
