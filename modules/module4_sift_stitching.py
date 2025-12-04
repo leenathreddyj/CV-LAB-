@@ -341,6 +341,7 @@ class ImageStitching:
         # Start with first image, then stitch each subsequent image to the result
         pan_result = resized_images[0]
         
+        # Stitch all images sequentially (fix: include all images, not len-1)
         for i in range(1, len(resized_images)):
             if progress_callback:
                 progress_callback(int((i / total_steps) * 100))
@@ -351,8 +352,13 @@ class ImageStitching:
             if stitched_img is not None:
                 pan_result = stitched_img
             else:
-                print(f"[Module 4] Failed to stitch image {i+1}, continuing with previous result")
-                # Continue with previous result instead of failing completely
+                print(f"[Module 4] Failed to stitch image {i+1}, trying reverse order...")
+                # Try reverse order if forward fails
+                stitched_img = self.stitch_pair(resized_images[i], pan_result, use_custom_sift)
+                if stitched_img is not None:
+                    pan_result = stitched_img
+                else:
+                    print(f"[Module 4] Both directions failed for image {i+1}")
         
         if progress_callback:
             progress_callback(100)
