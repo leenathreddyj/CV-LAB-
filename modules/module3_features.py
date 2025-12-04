@@ -1,7 +1,7 @@
 """
 Module 3: Comprehensive Feature Detection
 Gradient, LoG, Edges (NMS + Hysteresis), Corners (Harris), Boundary Detection, ArUco Segmentation
-Author: Mahendra Krishna Koneru
+Author: Venkata Saileenath Reddy
 """
 
 import cv2

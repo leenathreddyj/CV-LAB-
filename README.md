@@ -2,7 +2,7 @@
 
 ### Computer Vision Web Application
 
-**Author:** Sai Leenath Jampala
+**Author:** Venkata Saileenath Reddy
 
 **🌐 Live Demo:** [https://cv-lab.up.railway.app/](https://cv-lab.up.railway.app/)
 
@@ -182,7 +182,7 @@ SECRET_KEY=<your-secret-key>
 
 ## License
 
-Educational project © 2025 Sai Leenath Jampala
+Educational project © 2025 Venkata Saileenath Reddy
 
 ---
 

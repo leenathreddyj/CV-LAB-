@@ -1,7 +1,7 @@
 """
 Module 5-6: Real-Time Object Tracking
 Marker-based, Marker-less, and SAM2-based tracking
-Author: Mahendra Krishna Koneru
+Author: Venkata Saileenath Reddy
 """
 
 import cv2

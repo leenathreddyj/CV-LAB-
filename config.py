@@ -1,6 +1,6 @@
 """
 Production Configuration
-Author: Mahendra Krishna Koneru
+Author: Venkata Saileenath Reddy
 """
 
 import os

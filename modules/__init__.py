@@ -1,6 +1,6 @@
 """
 Computer Vision Modules Package
-Author: Mahendra Krishna Koneru
+Author: Venkata Saileenath Reddy
 """
 
 

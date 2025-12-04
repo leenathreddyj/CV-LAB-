@@ -1,6 +1,6 @@
 """
 Flask Backend for Computer Vision Project Website
-Author: Mahendra Krishna Koneru
+Author: Venkata Saileenath Reddy
 """
 
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, abort
@@ -507,7 +507,7 @@ if __name__ == '__main__':
     
     print("=" * 60)
     print("Computer Vision Project Website")
-    print("Author: Mahendra Krishna Koneru")
+    print("Author: Venkata Saileenath Reddy")
     print("=" * 60)
     print(f"\nStarting Flask server on port {port}")
     print(f"Environment: {'Development' if debug_mode else 'Production'}")

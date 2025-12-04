@@ -1,6 +1,6 @@
 """
 Module 4: Image Stitching and SIFT from Scratch
-Author: Mahendra Krishna Koneru
+Author: Venkata Saileenath Reddy
 """
 
 import cv2
