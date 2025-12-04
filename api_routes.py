@@ -788,6 +788,95 @@ def register_api_routes(app):
             app.logger.error(f"CSV save error: {str(e)}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
+    @app.route('/api/module7/evaluate', methods=['POST'])
+    def api_module7_evaluate():
+        """Evaluate hand pose estimation on a single image"""
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Not authenticated'}), 401
+        
+        try:
+            import time
+            data = request.json
+            image_data = data.get('image')
+            
+            if not image_data:
+                return jsonify({'success': False, 'message': 'No image data provided'}), 400
+            
+            # Decode image
+            image = decode_image(image_data)
+            if image is None:
+                return jsonify({'success': False, 'message': 'Failed to decode image'}), 400
+            
+            # Get hand tracker
+            hand_tracker = get_hand_tracker()
+            
+            # Process image and measure time
+            start_time = time.time()
+            annotated_frame, hand_landmarks_list, hand_data = hand_tracker.process_frame(image)
+            processing_time = (time.time() - start_time) * 1000  # Convert to ms
+            
+            # Extract metrics
+            hands_detected = len(hand_landmarks_list) if hand_landmarks_list else 0
+            detection_status = "Yes" if hands_detected > 0 else "No"
+            
+            # Get gesture for each hand
+            gestures = []
+            hand_types = []
+            total_landmarks = 0
+            
+            if hand_landmarks_list:
+                for idx, hand_landmarks in enumerate(hand_landmarks_list):
+                    gesture = hand_tracker.detect_gestures(hand_landmarks)
+                    gestures.append(gesture)
+                    
+                    # Determine hand type (left/right) from hand_data
+                    hand_type = "Unknown"
+                    if hand_data:
+                        # Check for hand type in hand_data
+                        hand_type_key = f'hand_{idx}_type'
+                        if hand_type_key in hand_data:
+                            hand_type = hand_data[hand_type_key]
+                        elif 'hand_0_type' in hand_data and idx == 0:
+                            hand_type = hand_data['hand_0_type']
+                        else:
+                            # Simple heuristic: check wrist position relative to hand center
+                            wrist = hand_landmarks.landmark[0]
+                            hand_center_x = sum([lm.x for lm in hand_landmarks.landmark]) / len(hand_landmarks.landmark)
+                            hand_type = "Left" if wrist.x < hand_center_x else "Right"
+                    else:
+                        # Simple heuristic: check wrist position relative to hand center
+                        wrist = hand_landmarks.landmark[0]
+                        hand_center_x = sum([lm.x for lm in hand_landmarks.landmark]) / len(hand_landmarks.landmark)
+                        hand_type = "Left" if wrist.x < hand_center_x else "Right"
+                    
+                    hand_types.append(hand_type)
+                    total_landmarks += 21  # MediaPipe hands has 21 landmarks per hand
+            
+            # Format results
+            gesture_str = ", ".join(gestures) if gestures else "None"
+            hand_type_str = " + ".join(hand_types) if hand_types else "None"
+            
+            # Encode result image
+            result_image = encode_image(annotated_frame, quality=85)
+            
+            return jsonify({
+                'success': True,
+                'metrics': {
+                    'detection_status': detection_status,
+                    'hands_detected': hands_detected,
+                    'gesture': gesture_str,
+                    'hand_type': hand_type_str,
+                    'landmarks_detected': total_landmarks,
+                    'processing_time_ms': round(processing_time, 2)
+                },
+                'result_image': result_image
+            })
+        except Exception as e:
+            print(f"[Module 7] Evaluation error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': f'Evaluation failed: {str(e)}'}), 500
+    
     @app.route('/api/module7/reset_data', methods=['POST'])
     def api_module7_reset_data():
         """Reset pose and hand tracking data"""

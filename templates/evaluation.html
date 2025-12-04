@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Pose Evaluation | CV Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/module.css">
+    <style>
+        .evaluation-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 48px;
+        }
+
+        .evaluation-header {
+            margin-bottom: 48px;
+        }
+
+        .evaluation-header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+        }
+
+        .evaluation-header p {
+            color: var(--text-muted);
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .upload-section {
+            background: var(--bg-card);
+            border: 2px solid var(--border-dark);
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+
+        .upload-section h3 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent-orange);
+            margin-bottom: 20px;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .image-item {
+            position: relative;
+            border: 2px solid var(--border-light);
+            background: var(--bg-secondary);
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .image-item:hover {
+            border-color: var(--accent-orange);
+        }
+
+        .image-item.selected {
+            border-color: var(--accent-orange);
+            background: rgba(232, 93, 4, 0.1);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-item .image-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 8px;
+            color: var(--text-dark);
+        }
+
+        .evaluation-table {
+            background: var(--bg-card);
+            border: 2px solid var(--border-dark);
+            overflow-x: auto;
+            margin-top: 32px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: var(--text-dark);
+        }
+
+        th {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 16px;
+            text-align: left;
+            color: var(--bg-primary);
+            border-bottom: 2px solid var(--border-dark);
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 14px;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent-orange);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 2px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .status-yes {
+            background: rgba(0, 200, 0, 0.2);
+            color: #00A000;
+        }
+
+        .status-no {
+            background: rgba(200, 0, 0, 0.2);
+            color: #A00000;
+        }
+
+        .evaluate-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 16px 32px;
+            background: var(--accent-orange);
+            color: var(--bg-primary);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 24px;
+        }
+
+        .evaluate-btn:hover {
+            background: var(--accent-rust);
+        }
+
+        .evaluate-btn:disabled {
+            background: var(--border-light);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 32px;
+            color: var(--text-muted);
+        }
+
+        .result-image {
+            width: 100px;
+            height: 75px;
+            object-fit: cover;
+            border: 1px solid var(--border-light);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Hand Pose Estimation Evaluation</h1>
+        <a href="/dashboard" class="back-btn">← Dashboard</a>
+    </div>
+
+    <div class="evaluation-container">
+        <div class="evaluation-header">
+            <h1>Module 07: Hand Pose Estimation Evaluation</h1>
+            <p>Evaluate hand pose estimation accuracy across 10 different variations. Upload images and view detailed metrics for each variation.</p>
+        </div>
+
+        <div class="upload-section">
+            <h3>Upload Test Images (10 Variations)</h3>
+            <input type="file" id="imageInput" accept="image/*" multiple style="margin-bottom: 20px;">
+            <div class="image-grid" id="imageGrid"></div>
+            <button class="evaluate-btn" id="evaluateBtn" onclick="evaluateAll()" disabled>Evaluate All Images</button>
+        </div>
+
+        <div class="evaluation-table" id="resultsTable" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Image</th>
+                        <th>Detection Status</th>
+                        <th>Hands Detected</th>
+                        <th>Hand Type</th>
+                        <th>Gesture</th>
+                        <th>Landmarks</th>
+                        <th>Processing Time (ms)</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="loading" id="loadingDiv" style="display: none;">
+            Processing images... Please wait.
+        </div>
+    </div>
+
+    <script>
+        let uploadedImages = [];
+        let evaluationResults = [];
+
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            uploadedImages = [];
+            const grid = document.getElementById('imageGrid');
+            grid.innerHTML = '';
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImages.push({
+                        name: file.name,
+                        data: e.target.result,
+                        index: index
+                    });
+
+                    const item = document.createElement('div');
+                    item.className = 'image-item';
+                    item.innerHTML = `
+                        <img src="${e.target.result}" alt="Image ${index + 1}">
+                        <div class="image-label">Variation ${index + 1}</div>
+                    `;
+                    grid.appendChild(item);
+                };
+                reader.readAsDataURL(file);
+            });
+
+            document.getElementById('evaluateBtn').disabled = files.length === 0;
+        });
+
+        async function evaluateAll() {
+            if (uploadedImages.length === 0) {
+                alert('Please upload at least one image');
+                return;
+            }
+
+            document.getElementById('evaluateBtn').disabled = true;
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('resultsTable').style.display = 'none';
+            evaluationResults = [];
+
+            for (let i = 0; i < uploadedImages.length; i++) {
+                const image = uploadedImages[i];
+                try {
+                    const response = await fetch('/api/module7/evaluate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: image.data })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        evaluationResults.push({
+                            index: i + 1,
+                            imageName: image.name,
+                            imageData: image.data,
+                            resultImage: data.result_image,
+                            metrics: data.metrics
+                        });
+                    } else {
+                        evaluationResults.push({
+                            index: i + 1,
+                            imageName: image.name,
+                            imageData: image.data,
+                            resultImage: null,
+                            metrics: {
+                                detection_status: 'Error',
+                                hands_detected: 0,
+                                hand_type: 'N/A',
+                                gesture: 'N/A',
+                                landmarks_detected: 0,
+                                processing_time_ms: 0
+                            },
+                            error: data.message
+                        });
+                    }
+                } catch (error) {
+                    evaluationResults.push({
+                        index: i + 1,
+                        imageName: image.name,
+                        imageData: image.data,
+                        resultImage: null,
+                        metrics: {
+                            detection_status: 'Error',
+                            hands_detected: 0,
+                            hand_type: 'N/A',
+                            gesture: 'N/A',
+                            landmarks_detected: 0,
+                            processing_time_ms: 0
+                        },
+                        error: error.message
+                    });
+                }
+            }
+
+            displayResults();
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('evaluateBtn').disabled = false;
+        }
+
+        function displayResults() {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+
+            evaluationResults.forEach(result => {
+                const row = document.createElement('tr');
+                const statusClass = result.metrics.detection_status === 'Yes' ? 'status-yes' : 'status-no';
+                
+                row.innerHTML = `
+                    <td class="metric-value">${result.index}</td>
+                    <td>
+                        ${result.resultImage ? `<img src="${result.resultImage}" class="result-image" alt="Result">` : 'N/A'}
+                    </td>
+                    <td>
+                        <span class="status-badge ${statusClass}">${result.metrics.detection_status}</span>
+                    </td>
+                    <td class="metric-value">${result.metrics.hands_detected}</td>
+                    <td>${result.metrics.hand_type}</td>
+                    <td>${result.metrics.gesture}</td>
+                    <td class="metric-value">${result.metrics.landmarks_detected}</td>
+                    <td class="metric-value">${result.metrics.processing_time_ms}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('resultsTable').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+

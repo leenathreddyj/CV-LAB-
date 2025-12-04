@@ -165,6 +165,13 @@ def dashboard():
         return render_template('login.html')
     return render_template('dashboard.html')
 
+@app.route('/evaluation')
+def evaluation():
+    """Hand Pose Estimation Evaluation page"""
+    if 'user_id' not in session:
+        return render_template('login.html')
+    return render_template('evaluation.html')
+
 @app.route('/api/register', methods=['POST'])
 @validate_request_json('username', 'email', 'image')
 def api_register():
