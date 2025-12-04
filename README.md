@@ -36,8 +36,8 @@ CV Lab provides seven specialized modules for computer vision tasks:
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd Computer-Vision-Application
+git clone https://github.com/leenathreddyj/CV-LAB-.git
+cd Computer-Vision-Application-main
 
 # Create virtual environment
 python -m venv venv
@@ -58,8 +58,10 @@ python app.py
 For local development, open your browser and navigate to:
 
 ```
-http://localhost:5000
+http://localhost:5001
 ```
+
+**Note:** The default port is 5001. You can change it by setting the `PORT` environment variable.
 
 Use the **Developer Login** for quick access without registration.
 
@@ -96,11 +98,12 @@ Comprehensive feature analysis toolkit:
 
 ### Module 04: Image Stitching
 
-Create panoramas from multiple overlapping images.
+Create panoramas from multiple overlapping images using OpenCV's built-in Stitcher class.
 
+- OpenCV Stitcher (PANORAMA mode)
 - SIFT feature detection (OpenCV and custom implementation)
-- FLANN-based feature matching
-- RANSAC homography estimation
+- Automatic feature matching and blending
+- Supports multiple images in sequence
 
 ### Module 05-06: Object Tracking
 
