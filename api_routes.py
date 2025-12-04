@@ -71,8 +71,26 @@ def decode_image(image_data):
 
 def encode_image(image, quality=85):
     """Encode image to base64 with compression"""
+    # Ensure image is uint8
+    if image.dtype != np.uint8:
+        if image.dtype == np.float32 or image.dtype == np.float64:
+            if image.max() <= 1.0:
+                image = (image * 255).astype(np.uint8)
+            else:
+                image = np.clip(image, 0, 255).astype(np.uint8)
+        else:
+            image = image.astype(np.uint8)
+    
+    # Ensure image has valid shape
+    if len(image.shape) < 2:
+        raise ValueError("Invalid image shape")
+    
     encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
-    _, buffer = cv2.imencode('.jpg', image, encode_param)
+    success, buffer = cv2.imencode('.jpg', image, encode_param)
+    
+    if not success or buffer is None:
+        raise ValueError("Failed to encode image with OpenCV")
+    
     img_base64 = base64.b64encode(buffer).decode('utf-8')
     return f"data:image/jpeg;base64,{img_base64}"
 
@@ -434,13 +452,40 @@ def register_api_routes(app):
             elif len(stitched.shape) == 3 and stitched.shape[2] != 3:
                 print(f"[Module 4] Warning: Unexpected image channels: {stitched.shape}")
             
+            # Ensure image is uint8 (required for encoding)
+            if stitched.dtype != np.uint8:
+                if stitched.dtype == np.float32 or stitched.dtype == np.float64:
+                    # Normalize if in 0-1 range, otherwise assume 0-255
+                    if stitched.max() <= 1.0:
+                        stitched = (stitched * 255).astype(np.uint8)
+                    else:
+                        stitched = np.clip(stitched, 0, 255).astype(np.uint8)
+                else:
+                    stitched = stitched.astype(np.uint8)
+            
+            # Resize if image is too large (to prevent encoding issues and memory problems)
+            max_dimension = 4000  # Max width or height
+            h, w = stitched.shape[:2]
+            if max(h, w) > max_dimension:
+                scale = max_dimension / max(h, w)
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                stitched = cv2.resize(stitched, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                print(f"[Module 4] Resized stitched image from {(h, w)} to {(new_h, new_w)}")
+            
             # Encode result
             try:
                 encoded = encode_image(stitched, quality=90)
                 if not encoded or not encoded.startswith('data:image'):
-                    raise ValueError("Image encoding failed")
+                    raise ValueError("Image encoding failed - invalid format")
+                # Validate encoded data length
+                if len(encoded) < 100:  # Base64 data should be much longer
+                    raise ValueError("Image encoding failed - data too short")
             except Exception as encode_err:
                 print(f"[Module 4] Encoding error: {str(encode_err)}")
+                print(f"[Module 4] Image shape: {stitched.shape}, dtype: {stitched.dtype}")
+                import traceback
+                traceback.print_exc()
                 del images
                 del stitched
                 gc.collect()
