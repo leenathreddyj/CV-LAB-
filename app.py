@@ -34,23 +34,40 @@ app.secret_key = app.config['SECRET_KEY']
 
 CORS(app, supports_credentials=True, origins="*")
 
-if not app.config['DEBUG']:
-    if not os.path.exists('logs'):
-        os.mkdir('logs')
-    file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240000, backupCount=10)
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    ))
-    file_handler.setLevel(logging.INFO)
-    app.logger.addHandler(file_handler)
-    app.logger.setLevel(logging.INFO)
+# Setup logging (with error handling for Railway)
+try:
+    if not app.config['DEBUG']:
+        os.makedirs('logs', exist_ok=True)
+        file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240000, backupCount=10)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+        app.logger.setLevel(logging.INFO)
+    else:
+        # In development, use console logging
+        app.logger.setLevel(logging.DEBUG)
     app.logger.info('Computer Vision App startup')
+except Exception as e:
+    # If logging setup fails, use basic logging
+    logging.basicConfig(level=logging.INFO)
+    logging.warning(f"Could not setup file logging: {str(e)}")
 
 register_error_handlers(app)
 
-# Import and register API routes
-from api_routes import register_api_routes
-register_api_routes(app)
+# Import and register API routes (with error handling)
+try:
+    from api_routes import register_api_routes
+    register_api_routes(app)
+    app.logger.info('API routes registered successfully')
+except Exception as e:
+    app.logger.error(f'Failed to register API routes: {str(e)}')
+    print(f"❌ Critical error: Failed to register API routes: {str(e)}")
+    import traceback
+    traceback.print_exc()
+    # Re-raise this as it's critical
+    raise
 
 # Ensure directories exist (with error handling for Railway)
 try:
@@ -63,10 +80,15 @@ try:
 except Exception as e:
     app.logger.warning(f"Could not create directories: {str(e)}")
 
-# Database initialization with error handling
+# Database initialization with error handling (non-fatal)
 def init_db():
     """Initialize database with proper error handling"""
     try:
+        # Ensure database directory exists
+        db_dir = os.path.dirname(app.config['DATABASE_PATH'])
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        
         conn = sqlite3.connect(app.config['DATABASE_PATH'])
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS users
@@ -79,8 +101,10 @@ def init_db():
         conn.close()
         app.logger.info('Database initialized successfully')
     except Exception as e:
+        # Don't raise - just log the error so app can still start
         app.logger.error(f'Database initialization error: {str(e)}')
-        raise
+        print(f"⚠️ Database initialization warning: {str(e)}")
+        # App can still run without database (some features won't work)
 
 def get_db_connection():
     """Get database connection with error handling"""
@@ -533,6 +557,10 @@ def health():
 try:
     app.logger.info('App initialized and ready')
     print("✓ App initialized successfully")
+    print(f"✓ Environment: {env}")
+    print(f"✓ Debug mode: {app.config['DEBUG']}")
 except Exception as e:
     print(f"⚠️ Warning during app initialization: {str(e)}")
+    # Use basic logging if app.logger fails
+    logging.info('App initialized and ready (using basic logging)')
 
