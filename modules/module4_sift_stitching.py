@@ -287,11 +287,20 @@ class SIFTFromScratch:
 
 
 class ImageStitching:
-    """Image stitching using feature matching with weighted blending and RANSAC"""
+    """Image stitching using OpenCV's built-in Stitcher class"""
     
     def __init__(self, smoothing_window_percent=0.1, max_dimension=1200):
-        self.sift = cv2.SIFT_create(nfeatures=2000, contrastThreshold=0.04, edgeThreshold=10)
-        self.smoothing_window_percent = smoothing_window_percent
+        # Use OpenCV's Stitcher class (as in reference C++ code)
+        # OpenCV 4.x uses Stitcher.create()
+        try:
+            self.stitcher = cv2.Stitcher.create(cv2.Stitcher_PANORAMA)
+            # Status codes (using integer values for compatibility)
+            self.status_ok = 0  # cv2.Stitcher_OK
+            self.status_need_more = 1  # cv2.Stitcher_ERR_NEED_MORE_IMGS
+            self.status_homography = 2  # cv2.Stitcher_ERR_HOMOGraphy_EST_FAIL
+            self.status_camera = 3  # cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL
+        except (AttributeError, cv2.error) as e:
+            raise RuntimeError(f"OpenCV Stitcher not available: {str(e)}. Please install OpenCV with stitching module.")
         self.max_dimension = max_dimension  # Resize images for faster processing
     
     def resize_image_for_processing(self, image):
@@ -311,11 +320,11 @@ class ImageStitching:
     
     def stitch_images(self, images, use_custom_sift=False, progress_callback=None):
         """
-        Stitch multiple images into panorama (LEFT to RIGHT order) - OPTIMIZED
+        Stitch multiple images into panorama using OpenCV's Stitcher class
         
         Args:
             images: List of images to stitch (ordered left to right)
-            use_custom_sift: Use custom SIFT implementation (slower)
+            use_custom_sift: Ignored (OpenCV Stitcher always uses OpenCV SIFT)
             progress_callback: Function to report progress
         
         Returns:
@@ -324,36 +333,47 @@ class ImageStitching:
         if len(images) < 2:
             return images[0] if len(images) == 1 else None
         
-        # Force OpenCV SIFT for speed unless explicitly requested
-        if use_custom_sift:
-            print("⚠️ Warning: Custom SIFT is very slow. Using OpenCV SIFT for speed.")
-            use_custom_sift = False
+        if progress_callback:
+            progress_callback(10)
         
-        total_steps = len(images) - 1
-        
-        # Resize images for faster processing
-        resized_images = []
-        scales = []
+        # Resize images for faster processing (if needed)
+        processed_images = []
         for img in images:
-            resized, scale = self.resize_image_for_processing(img)
-            resized_images.append(resized)
-            scales.append(scale)
-        
-        # Stitch sequentially from left to right
-        result = resized_images[0]
-        
-        for i in range(1, len(resized_images)):
-            if progress_callback:
-                progress_callback(int((i / total_steps) * 100))
-            
-            result = self.stitch_pair(result, resized_images[i], use_custom_sift)
-            if result is None:
-                return None
+            resized, _ = self.resize_image_for_processing(img)
+            processed_images.append(resized)
         
         if progress_callback:
-            progress_callback(100)
+            progress_callback(30)
         
-        return result
+        # Use OpenCV's Stitcher class (as in reference C++ code)
+        try:
+            status, pano = self.stitcher.stitch(processed_images)
+            
+            if progress_callback:
+                progress_callback(90)
+            
+            if status != self.status_ok:
+                error_codes = {
+                    self.status_ok: "OK",
+                    self.status_need_more: "Need more images",
+                    self.status_homography: "Homography estimation failed",
+                    self.status_camera: "Camera parameters adjustment failed"
+                }
+                error_msg = error_codes.get(status, f"Unknown error code: {int(status)}")
+                print(f"[Module 4] Stitching failed: {error_msg} (code: {int(status)})")
+                return None
+            
+            if progress_callback:
+                progress_callback(100)
+            
+            print(f"[Module 4] Stitching successful: {pano.shape}")
+            return pano
+            
+        except Exception as e:
+            print(f"[Module 4] Stitching exception: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def stitch_pair(self, img1, img2, use_custom_sift=False):
         """OPTIMIZED: Stitch two images blazing fast"""
