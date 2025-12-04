@@ -311,7 +311,7 @@ class ImageStitching:
     
     def stitch_images(self, images, use_custom_sift=False, progress_callback=None):
         """
-        Stitch multiple images into panorama (LEFT to RIGHT order)
+        Stitch multiple images into panorama (LEFT to RIGHT order) - OPTIMIZED
         
         Args:
             images: List of images to stitch (ordered left to right)
@@ -333,87 +333,55 @@ class ImageStitching:
         
         # Resize images for faster processing
         resized_images = []
+        scales = []
         for img in images:
             resized, scale = self.resize_image_for_processing(img)
             resized_images.append(resized)
+            scales.append(scale)
         
-        # Stitch sequentially from left to right (as in reference code)
-        # Start with first image, then stitch each subsequent image to the result
-        pan_result = resized_images[0]
+        # Stitch sequentially from left to right
+        result = resized_images[0]
         
-        # Stitch all images sequentially (fix: include all images, not len-1)
         for i in range(1, len(resized_images)):
             if progress_callback:
                 progress_callback(int((i / total_steps) * 100))
             
-            print(f"[Module 4] Stitching image {i+1}/{len(resized_images)}...")
-            stitched_img = self.stitch_pair(pan_result, resized_images[i], use_custom_sift)
-            
-            if stitched_img is not None:
-                pan_result = stitched_img
-            else:
-                print(f"[Module 4] Failed to stitch image {i+1}, trying reverse order...")
-                # Try reverse order if forward fails
-                stitched_img = self.stitch_pair(resized_images[i], pan_result, use_custom_sift)
-                if stitched_img is not None:
-                    pan_result = stitched_img
-                else:
-                    print(f"[Module 4] Both directions failed for image {i+1}")
+            result = self.stitch_pair(result, resized_images[i], use_custom_sift)
+            if result is None:
+                return None
         
         if progress_callback:
             progress_callback(100)
         
-        return pan_result
+        return result
     
     def stitch_pair(self, img1, img2, use_custom_sift=False):
-        """Stitch two images using SIFT and homography - exact reference implementation"""
-        # Convert to grayscale for SIFT
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY) if len(img1.shape) == 3 else img1.copy()
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY) if len(img2.shape) == 3 else img2.copy()
-        
-        # Detect and compute SIFT features
-        kp1, des1 = self.sift.detectAndCompute(gray1, None)
-        kp2, des2 = self.sift.detectAndCompute(gray2, None)
+        """OPTIMIZED: Stitch two images blazing fast"""
+        # Always use OpenCV SIFT for speed (custom is too slow)
+        kp1_cv, des1 = self.sift.detectAndCompute(img1, None)
+        kp2_cv, des2 = self.sift.detectAndCompute(img2, None)
         
         if des1 is None or des2 is None or len(des1) < 4 or len(des2) < 4:
             return None
         
-        # Use BFMatcher (exact as reference)
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des2, des1, k=2)
+        # Fast feature matching with FLANN
+        matches = self.match_features_fast(des1, des2)
         
-        # Apply ratio test (0.6 as in reference)
-        good_matches = []
-        for match_pair in matches:
-            if len(match_pair) == 2:
-                m, n = match_pair
-                if m.distance < 0.6 * n.distance:
-                    good_matches.append(m)
-        
-        if len(good_matches) < 4:
+        if len(matches) < 4:
             return None
         
-        # Extract matching points (query from img2, train from img1) - EXACT as reference
-        query_pts = np.float32([kp2[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        train_pts = np.float32([kp1[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        # Extract matching points
+        src_pts = np.float32([kp1_cv[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2_cv[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
         
-        # Find homography using RANSAC (threshold 5.0 as in reference)
-        H, mask = cv2.findHomography(query_pts, train_pts, cv2.RANSAC, 5.0)
+        # Find homography using OpenCV's optimized RANSAC
+        H, inliers = self.find_homography_ransac(src_pts, dst_pts)
         
         if H is None:
             return None
         
-        # Get image dimensions
-        h1, w1 = img1.shape[:2]
-        h2, w2 = img2.shape[:2]
-        
-        # Warp img2 - EXACT as reference code
-        dst = cv2.warpPerspective(img2, H, (w1 + w2, h2))
-        
-        # Place img1 in the warped result - EXACT as reference code
-        dst[0:h1, 0:w1] = img1
-        
-        return dst
+        # Fast warp and blend
+        return self.warp_and_blend(img1, img2, H)
     
     def find_homography_ransac(self, src_pts, dst_pts, max_iterations=500, threshold=4.0):
         """
