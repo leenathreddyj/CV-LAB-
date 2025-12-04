@@ -514,3 +514,6 @@ if __name__ == '__main__':
     print("Press Ctrl+C to stop the server\n")
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
 
+# For Railway/Gunicorn - ensure app is accessible
+app.logger.info('App initialized and ready')
+
