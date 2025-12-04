@@ -411,13 +411,40 @@ def register_api_routes(app):
                 gc.collect()
                 return jsonify({'success': False, 'message': 'Stitching failed - insufficient feature matches'}), 400
             
+            # Validate stitched image
+            if stitched.size == 0 or len(stitched.shape) < 2:
+                print(f"[Module 4] Invalid stitched image: shape={stitched.shape if stitched is not None else 'None'}")
+                del images
+                del stitched
+                gc.collect()
+                return jsonify({'success': False, 'message': 'Stitching produced invalid image'}), 400
+            
             print(f"[Module 4] Stitching successful: {stitched.shape}")
             
             # Get shape before encoding
             result_shape = stitched.shape[:2]
             
+            # Ensure image is in correct format (BGR for OpenCV)
+            if len(stitched.shape) == 2:
+                # Grayscale - convert to BGR
+                stitched = cv2.cvtColor(stitched, cv2.COLOR_GRAY2BGR)
+            elif len(stitched.shape) == 3 and stitched.shape[2] == 4:
+                # RGBA - convert to BGR
+                stitched = cv2.cvtColor(stitched, cv2.COLOR_RGBA2BGR)
+            elif len(stitched.shape) == 3 and stitched.shape[2] != 3:
+                print(f"[Module 4] Warning: Unexpected image channels: {stitched.shape}")
+            
             # Encode result
-            encoded = encode_image(stitched, quality=90)
+            try:
+                encoded = encode_image(stitched, quality=90)
+                if not encoded or not encoded.startswith('data:image'):
+                    raise ValueError("Image encoding failed")
+            except Exception as encode_err:
+                print(f"[Module 4] Encoding error: {str(encode_err)}")
+                del images
+                del stitched
+                gc.collect()
+                return jsonify({'success': False, 'message': f'Failed to encode image: {str(encode_err)}'}), 500
             
             # Free memory
             del images

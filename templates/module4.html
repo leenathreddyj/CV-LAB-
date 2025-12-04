@@ -226,8 +226,21 @@
                     progressFill.textContent = '100%';
                     progressText.textContent = 'Complete!';
                     
-                    document.getElementById('panorama').src = data.stitched;
-                    document.getElementById('panoramaResult').style.display = 'block';
+                    // Ensure image data is valid
+                    if (data.stitched && data.stitched.startsWith('data:image')) {
+                        const imgElement = document.getElementById('panorama');
+                        imgElement.src = data.stitched;
+                        imgElement.onload = function() {
+                            console.log('Panorama image loaded successfully');
+                        };
+                        imgElement.onerror = function() {
+                            console.error('Failed to load panorama image');
+                            alert('Failed to display stitched image. Please try again.');
+                        };
+                        document.getElementById('panoramaResult').style.display = 'block';
+                    } else {
+                        throw new Error('Invalid image data received from server');
+                    }
                     
                     setTimeout(() => progressContainer.classList.remove('active'), 1500);
                 } else {
