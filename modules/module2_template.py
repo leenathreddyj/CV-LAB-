@@ -74,6 +74,14 @@ class TemplateMatchingModule:
         if template_gray.dtype != np.uint8:
             template_gray = cv2.normalize(template_gray, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
         
+        # Check if template is larger than image (invalid for template matching)
+        img_h, img_w = image_gray.shape
+        template_h, template_w = template_gray.shape
+        
+        if template_h > img_h or template_w > img_w:
+            print(f"⚠️ Template ({template_w}x{template_h}) is larger than image ({img_w}x{img_h}), skipping match")
+            return [], None
+        
         # Perform FAST template matching
         result = cv2.matchTemplate(image_gray, template_gray, method)
         
@@ -96,7 +104,7 @@ class TemplateMatchingModule:
         points = list(zip(*loc[::-1]))  # Switch x and y
         
         if len(points) == 0:
-            # If no detections above threshold, get the best one
+            # If no detections above threshold, get the best one only if confidence is reasonable
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
             
             if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
@@ -106,12 +114,16 @@ class TemplateMatchingModule:
                 top_left = max_loc
                 confidence = max_val
             
-            bottom_right = (top_left[0] + w, top_left[1] + h)
-            detections.append({
-                'bbox': [int(top_left[0]), int(top_left[1]), int(w), int(h)],
-                'confidence': float(confidence),
-                'center': [int(top_left[0] + w//2), int(top_left[1] + h//2)]
-            })
+            # Only return best match if confidence is above a minimum threshold (0.5)
+            # This prevents false positives when no good matches exist
+            if confidence >= 0.5:
+                detections.append({
+                    'bbox': [int(top_left[0]), int(top_left[1]), int(w), int(h)],
+                    'confidence': float(confidence),
+                    'center': [int(top_left[0] + w//2), int(top_left[1] + h//2)]
+                })
+            else:
+                print(f"  ⚠️ Best match confidence ({confidence:.3f}) below minimum (0.5), skipping")
         else:
             # Non-maximum suppression to remove overlapping detections
             boxes = []
@@ -119,14 +131,21 @@ class TemplateMatchingModule:
             
             for pt in points:
                 boxes.append([pt[0], pt[1], pt[0] + w, pt[1] + h])
-                scores.append(float(confidence_map[pt[1], pt[0]]))
+                # Ensure we're accessing the confidence map correctly (row, col)
+                try:
+                    score = float(confidence_map[pt[1], pt[0]])
+                    scores.append(score)
+                except (IndexError, ValueError) as e:
+                    # Fallback: use threshold if indexing fails
+                    print(f"  ⚠️ Error accessing confidence map at ({pt[0]}, {pt[1]}): {e}")
+                    scores.append(float(threshold))
             
             # Apply NMS
             boxes = np.array(boxes)
             scores = np.array(scores)
             
-            # Simple NMS
-            indices = self.non_max_suppression(boxes, scores, overlap_thresh=0.3)
+            # Simple NMS with better overlap threshold
+            indices = self.non_max_suppression(boxes, scores, overlap_thresh=0.4)
             
             for idx in indices:
                 x, y = int(boxes[idx][0]), int(boxes[idx][1])
@@ -135,6 +154,9 @@ class TemplateMatchingModule:
                     'confidence': float(scores[idx]),
                     'center': [int(x + w//2), int(y + h//2)]
                 })
+            
+            # Sort detections by confidence (highest first)
+            detections.sort(key=lambda d: d['confidence'], reverse=True)
         
         return detections, result
     
@@ -215,7 +237,7 @@ class TemplateMatchingModule:
             if scale != 1.0:
                 for det in detections:
                     det['bbox'] = [int(b / scale) for b in det['bbox']]
-                    det['center'] = (int(det['center'][0] / scale), int(det['center'][1] / scale))
+                    det['center'] = [int(det['center'][0] / scale), int(det['center'][1] / scale)]
             
             print(f"  ✓ Template {i+1}/{total_templates}: {self.template_names[i]} - {len(detections)} detection(s)")
             
