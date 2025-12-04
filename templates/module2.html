@@ -417,6 +417,15 @@
                     progressFill.textContent = '100%';
                     progressText.textContent = 'Done!';
                     
+                    // Debug: log the response structure
+                    console.log('Template matching response:', data);
+                    if (data.matches && data.matches.length > 0) {
+                        console.log('First match structure:', data.matches[0]);
+                        if (data.matches[0].detections) {
+                            console.log('First match detections:', data.matches[0].detections);
+                        }
+                    }
+                    
                     displayMatchResults(data.matches);
                     setTimeout(() => progressContainer.classList.remove('active'), 1000);
                 } else {
@@ -443,14 +452,39 @@
             let html = '';
             
             for (const m of matches) {
-                const det = m.detections[0];
-                const confidence = det ? (det.confidence * 100).toFixed(1) : 0;
+                // Get the best detection (highest confidence)
+                let confidence = 0;
+                let numDetections = 0;
+                let confidenceText = '';
+                
+                // Check detections array
+                if (m.detections && Array.isArray(m.detections) && m.detections.length > 0) {
+                    numDetections = m.detections.length;
+                    // Find the highest confidence detection
+                    let bestConfidence = 0;
+                    for (const det of m.detections) {
+                        if (det && typeof det.confidence === 'number' && det.confidence > bestConfidence) {
+                            bestConfidence = det.confidence;
+                        }
+                    }
+                    if (bestConfidence > 0) {
+                        confidence = (bestConfidence * 100).toFixed(1);
+                        confidenceText = `<span class="detection-badge">${confidence}% confidence</span>`;
+                    }
+                } else if (m.num_detections !== undefined) {
+                    numDetections = m.num_detections;
+                }
+                
+                const detectionText = numDetections > 0 
+                    ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 12px;">${numDetections} detection(s)</span>`
+                    : '<span style="font-family: \'JetBrains Mono\', monospace; font-size: 11px; color: var(--accent-rust); margin-left: 12px;">No detections</span>';
                 
                 html += `
                     <div class="result-card" style="margin-top: 32px;">
                         <h4>
                             ${m.name}
-                            <span class="detection-badge">${confidence}% confidence</span>
+                            ${confidenceText}
+                            ${detectionText}
                         </h4>
                         <img src="${m.result_image}" alt="Result">
                         <div style="margin-top: 16px;">
