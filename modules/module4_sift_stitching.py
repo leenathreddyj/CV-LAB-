@@ -294,11 +294,11 @@ class ImageStitching:
         # OpenCV 4.x uses Stitcher.create()
         try:
             self.stitcher = cv2.Stitcher.create(cv2.Stitcher_PANORAMA)
-            # Status codes (using integer values for compatibility)
-            self.status_ok = 0  # cv2.Stitcher_OK
-            self.status_need_more = 1  # cv2.Stitcher_ERR_NEED_MORE_IMGS
-            self.status_homography = 2  # cv2.Stitcher_ERR_HOMOGraphy_EST_FAIL
-            self.status_camera = 3  # cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL
+            # Status codes
+            self.status_ok = cv2.Stitcher_OK
+            self.status_need_more = cv2.Stitcher_ERR_NEED_MORE_IMGS
+            self.status_homography = cv2.Stitcher_ERR_HOMOGRAPHY_EST_FAIL
+            self.status_camera = cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL
         except (AttributeError, cv2.error) as e:
             raise RuntimeError(f"OpenCV Stitcher not available: {str(e)}. Please install OpenCV with stitching module.")
         self.max_dimension = max_dimension  # Resize images for faster processing
