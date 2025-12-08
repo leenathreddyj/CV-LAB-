@@ -115,6 +115,26 @@
     </div>
 
     <div class="container">
+        <div class="section" style="margin-bottom: 32px;">
+            <h2>Module Demonstration</h2>
+            <div class="info-box" style="margin-bottom: 20px;">
+                <strong>Video Tutorial:</strong> Watch the demonstration video to see how this module works.
+            </div>
+            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border: 2px solid var(--border-dark); background: var(--text-dark);">
+                <iframe 
+                    id="module5Video"
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
+                    src="{{ video_url if video_url else '' }}"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen>
+                </iframe>
+            </div>
+            <div style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">
+                <strong>Note:</strong> Replace the video URL in the code with your Google Drive video link.
+                <br>Format: <code>https://drive.google.com/file/d/YOUR_FILE_ID/preview</code>
+            </div>
+        </div>
+
         <div class="section">
             <h2>Object Tracking</h2>
             <div class="info-box">

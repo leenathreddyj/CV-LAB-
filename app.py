@@ -172,6 +172,13 @@ def evaluation():
         return render_template('login.html')
     return render_template('evaluation.html')
 
+# Import video config
+try:
+    from video_config import get_video_url
+except ImportError:
+    def get_video_url(module_name):
+        return ""
+
 @app.route('/api/register', methods=['POST'])
 @validate_request_json('username', 'email', 'image')
 def api_register():
