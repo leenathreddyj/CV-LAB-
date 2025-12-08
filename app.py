@@ -425,42 +425,42 @@ def module1():
     """Module 1: Real-World Dimension Estimation"""
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('module1.html')
+    return render_template('module1.html', video_url=get_video_url('module1'))
 
 @app.route('/module2')
 def module2():
     """Module 2: Template Matching & Fourier Restoration"""
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('module2.html')
+    return render_template('module2.html', video_url=get_video_url('module2'))
 
 @app.route('/module3')
 def module3():
     """Module 3: Gradients, LoG, Edge/Corner Detection"""
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('module3.html')
+    return render_template('module3.html', video_url=get_video_url('module3'))
 
 @app.route('/module4')
 def module4():
     """Module 4: Image Stitching + SIFT"""
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('module4.html')
+    return render_template('module4.html', video_url=get_video_url('module4'))
 
 @app.route('/module5')
 def module5():
     """Module 5-6: Real-Time Object Trackers"""
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('module5.html')
+    return render_template('module5.html', video_url=get_video_url('module5'))
 
 @app.route('/module7')
 def module7():
     """Module 7: Stereo Calibration + Pose + Hand Tracking"""
     if 'user_id' not in session:
         return render_template('login.html')
-    return render_template('module7.html')
+    return render_template('module7.html', video_url=get_video_url('module7'))
 
 @app.route('/documentation')
 def documentation():
